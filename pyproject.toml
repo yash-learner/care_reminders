@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "care_reminders"
+version = "0.1.0"
+description = "CARE Django plugin: dose calendar and Android exact-alarm APIs for patient OTP sessions."
+readme = "README.md"
+authors = [
+  {name = "Yaswanth Bethu", email = "yash.topaz@gmail.com"}
+]
+maintainers = [
+  {name = "Yaswanth Bethu", email = "yash.topaz@gmail.com"}
+]
+classifiers = [
+    # TODO
+]
+license = {text = "MIT"}
+dependencies = [
+    "django",
+    "celery",
+    "djangorestframework",
+]
+requires-python = ">= 3.10"
+
+[project.optional-dependencies]
+test = [
+    "ruff",  # linting
+]
+
+[project.urls]
+bugs = "https://github.com/yash-learner/care_reminders/issues"
+changelog = "https://github.com/yash-learner/care_reminders/blob/master/changelog.md"
+homepage = "https://github.com/yash-learner/care_reminders"
+
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+
+[tool.uv]
+package = true

@@ -181,7 +181,7 @@ There is no sideloadable APK in this increment yet. When the Capacitor app and K
 7. Taken / Skip / Snooze should `POST /api/care_reminders/alarms/{external_id}/…` (signed `?token=` is lock-screen safe). Confirm the occurrence status in Django.
 8. Reboot the phone; `BootReceiver` should re-arm from the local store.
 
-Kotlin to port lives in `care_medicine_reminder` (`AlarmScheduler`, `AlarmActivity`, `DoseAlarm`, etc.). Suggested app location: `care_fe/android` or `apps/patient_android` — not chosen yet.
+Kotlin to port lives in `care_medicine_reminder` (`AlarmScheduler`, `AlarmActivity`, `DoseAlarm`, etc.). Android project: `care_fe/android` (Capacitor).
 
 ## Order of work
 

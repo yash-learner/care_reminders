@@ -116,27 +116,27 @@ class Migration(migrations.Migration):
             constraint=models.UniqueConstraint(
                 condition=models.Q(("deleted", False)),
                 fields=("medication_request", "day_part", "slot_index"),
-                name="uniq_care_reminders_schedule_slot",
+                name="cr_rs_slot_uniq",
             ),
         ),
         migrations.AddIndex(
             model_name="reminderschedule",
-            index=models.Index(fields=["patient", "enabled"], name="care_remind_patient_enabled_idx"),
+            index=models.Index(fields=["patient", "enabled"], name="cr_rs_patient_en_idx"),
         ),
         migrations.AddConstraint(
             model_name="reminderoccurrence",
             constraint=models.UniqueConstraint(
                 condition=models.Q(("deleted", False)),
                 fields=("reminder_schedule", "scheduled_at"),
-                name="uniq_care_reminders_occurrence_time",
+                name="cr_ro_time_uniq",
             ),
         ),
         migrations.AddIndex(
             model_name="reminderoccurrence",
-            index=models.Index(fields=["status", "scheduled_at"], name="care_remind_status_sched_idx"),
+            index=models.Index(fields=["status", "scheduled_at"], name="cr_ro_status_at_idx"),
         ),
         migrations.AddIndex(
             model_name="reminderoccurrence",
-            index=models.Index(fields=["patient", "scheduled_at"], name="care_remind_patient_sched_idx"),
+            index=models.Index(fields=["patient", "scheduled_at"], name="cr_ro_patient_at_idx"),
         ),
     ]

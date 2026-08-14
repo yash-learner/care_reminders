@@ -59,11 +59,11 @@ class ReminderSchedule(BaseModel):
             models.UniqueConstraint(
                 fields=["medication_request", "day_part", "slot_index"],
                 condition=models.Q(deleted=False),
-                name="uniq_care_reminders_schedule_slot",
+                name="cr_rs_slot_uniq",
             )
         ]
         indexes = [
-            models.Index(fields=["patient", "enabled"], name="care_remind_patient_enabled_idx"),
+            models.Index(fields=["patient", "enabled"], name="cr_rs_patient_en_idx"),
         ]
 
     def label(self) -> str:
@@ -106,12 +106,12 @@ class ReminderOccurrence(BaseModel):
             models.UniqueConstraint(
                 fields=["reminder_schedule", "scheduled_at"],
                 condition=models.Q(deleted=False),
-                name="uniq_care_reminders_occurrence_time",
+                name="cr_ro_time_uniq",
             )
         ]
         indexes = [
-            models.Index(fields=["status", "scheduled_at"], name="care_remind_status_sched_idx"),
-            models.Index(fields=["patient", "scheduled_at"], name="care_remind_patient_sched_idx"),
+            models.Index(fields=["status", "scheduled_at"], name="cr_ro_status_at_idx"),
+            models.Index(fields=["patient", "scheduled_at"], name="cr_ro_patient_at_idx"),
         ]
 
     def title(self) -> str:

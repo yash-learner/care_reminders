@@ -7,6 +7,8 @@ One patient APK that shows CARE (`care_fe` patient portal) and rings Android exa
 - Rails `care_medicine_reminder` stays the independent DPG sidecar.
 - iOS, email, and a second portal wait.
 
+v1 build sequence (what is done, what is next, same-time medicines): [`increment-1-v1-plan.md`](increment-1-v1-plan.md).
+
 ## Target loop
 
 ```text
@@ -183,9 +185,11 @@ Kotlin to port lives in `care_medicine_reminder` (`AlarmScheduler`, `AlarmActivi
 
 ## Order of work
 
-1. Phase 0 (portal + 3720) in CARE / care_fe — in progress on the forks
-2. Models + `1-0-1` parser + OTP APIs in this plugin — done on `cursor/increment-1-calendar-d302`
-3. Web Home “Upcoming doses” card — done on `care_fe` `cursor/patient-capacitor-alarms-4f0c`
-4. Capacitor WebView shell (Phase 2) — **next**
-5. Port Kotlin alarm plugin and wire `Alarm.sync` (Phase 3)
-6. Sideload APK and run the Android checklist above
+Working sequence, including same-time medicines and v1 real-world limits: [`increment-1-v1-plan.md`](increment-1-v1-plan.md).
+
+1. Phase 0 (portal + 3720) — **done** (OTP Home / Records / Rx)
+2. Models + `1-0-1` parser + OTP APIs in this plugin — **done** on `cursor/increment-1-calendar-d302`
+3. Web Home “Upcoming doses” card — **done** on `care_fe` `cursor/patient-capacitor-alarms-4f0c`
+4. Capacitor WebView shell in `care_fe/android` (Phase 2) — **next**
+5. Port Kotlin alarm plugin, group same-minute medicines on the lock screen, wire `Alarm.sync` (Phase 3)
+6. Sideload APK and run the Android checklist above (plus two medicines at the same clock)

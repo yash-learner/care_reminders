@@ -43,6 +43,7 @@ class Calendar:
             "title": occurrence.title(),
             "body": occurrence.body(),
             "medication_name": occurrence.medication_name,
+            "patient_id": str(occurrence.patient.external_id),
             "patient_name": occurrence.patient.name,
             "day_part": occurrence.reminder_schedule.day_part,
             "take_path": self._action_path(occurrence, "take"),

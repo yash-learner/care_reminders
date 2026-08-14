@@ -106,6 +106,7 @@ class AlarmApiTest(CareAPITestBase):
         first = body["occurrences"][0]
         self.assertIn("take_path", first)
         self.assertIn("scheduled_at", first)
+        self.assertEqual(str(self.patient.external_id), first["patient_id"])
         self.assertEqual("Paracetamol 500 mg oral tablet", first["medication_name"])
 
     def test_take_with_signed_token(self):

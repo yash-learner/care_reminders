@@ -37,7 +37,7 @@ Leave behind: Hotwire Native, Stimulus `bridge--alarm`, Rails as CARE’s backen
 | --- | --- | --- |
 | [yash-learner/care_fe](https://github.com/yash-learner/care_fe) | `cursor/patient-capacitor-alarms-4f0c` | Fork **develop** + **squash** of ENG-831 ([ohcnetwork/care_fe#16612](https://github.com/ohcnetwork/care_fe/pull/16612)). Do **not** work on `ENG-831`. |
 | [yash-learner/care](https://github.com/yash-learner/care) | fork `develop` + squash of [ohcnetwork/care#3720](https://github.com/ohcnetwork/care/pull/3720) | OTP Rx/lab APIs. Must run locally. |
-| [yash-learner/care_reminders](https://github.com/yash-learner/care_reminders) | `main` (cookiecutter) | Calendar + alarm HTTP. `pip install -e`. |
+| [yash-learner/care_reminders](https://github.com/yash-learner/care_reminders) | `cursor/increment-1-calendar-d302` | Calendar + alarm HTTP. `pip install -e`. |
 | Capacitor Android | later, next to `care_fe` or `apps/patient_android` | WebView + alarm plugin |
 | [yash-learner/care_medicine_reminder](https://github.com/yash-learner/care_medicine_reminder) | unchanged | Rails DPG sidecar |
 
@@ -45,7 +45,7 @@ Leave behind: Hotwire Native, Stimulus `bridge--alarm`, Rails as CARE’s backen
 
 Four-repo environment (`care`, `care_fe`, `care_medicine_reminder`, `care_reminders`):
 
-- `care_fe` on `cursor/patient-capacitor-alarms-4f0c` (patient portal) plus the Capacitor sync hook
+- `care_fe` on `cursor/patient-capacitor-alarms-4f0c` (patient portal, Home upcoming-doses card, Capacitor sync hook)
 - `care` on a branch that includes #3720
 - `care_reminders` installed editable (`pip install -e` + `plug_config.py`)
 
@@ -62,7 +62,13 @@ A patient frontend federation plug would need CARE-core contracts that do not ex
 | Clock | Capacitor Kotlin, not React | Web cannot call `AlarmManager` |
 | Staff adherence UI (later) | Frontend plug on `AppRouter` | Staff already has plugin routes |
 
-Increment 1 UI in `care_fe` stays small: a `PatientAppShell` effect that runs only when `window.Capacitor` is present (`POST /sync/` then `Alarm.sync`). Optional later: an “Upcoming doses” block on Home or Records — still in `care_fe`. Do **not** add a fifth “Reminders” tab unless patients need a screen the native alarm and existing Records pages do not cover. Extract a `care_reminders_fe` plug only if a deployment needs the patient UI without shipping that code in core.
+Increment 1 UI in `care_fe` stays small:
+
+- Patient Home lists upcoming doses from `POST /api/care_reminders/sync/` (web and Capacitor). That is how you confirm the plugin is working in a browser — the list is the same calendar the phone will ring.
+- `PatientAppShell` still calls `Alarm.sync` **only** when `window.Capacitor` is present. The browser cannot set `AlarmManager`.
+- Optional `REACT_PATIENT_APK_URL` turns the Home note into an “Install the Android app to set alarms” button once an APK is published.
+
+Do **not** add a fifth “Reminders” tab unless patients need a screen the native alarm and existing Records pages do not cover. Extract a `care_reminders_fe` plug only if a deployment needs the patient UI without shipping that code in core.
 
 ## Phase 0 — run the portal
 
@@ -122,7 +128,7 @@ Port the working Kotlin into a Capacitor plugin (`Alarm.sync`, `Alarm.cancel`):
 
 `GET /api/care_reminders/alarms/` remains for native refresh (boot / worker).
 
-The `care_fe` hook lives on `PatientAppShell` and **only runs when `window.Capacitor` is present**. Browser sessions never call `/sync/`. Taken / Snooze / Skip = native UI; POST to this plugin with the signed action token on the calendar paths (lock-screen safe) or the OTP Bearer.
+The `care_fe` calendar query runs on web and Capacitor (`POST /sync/`) so Home can list doses. `Alarm.sync` still runs **only when `window.Capacitor` is present**. Taken / Snooze / Skip = native UI; POST to this plugin with the signed action token on the calendar paths (lock-screen safe) or the OTP Bearer.
 
 JSON `id` is the integer PK (AlarmManager request code). Action URLs use `external_id` (UUID). `scheduled_at` is UTC ISO-8601.
 
@@ -144,9 +150,42 @@ JSON `id` is the integer PK (AlarmManager request code). Action URLs use `extern
 - Killing Rails
 - Email / WhatsApp / other EMRs
 
+## How to test
+
+### Web (now — no APK)
+
+Alarms will not ring in Chrome/Firefox. The Home card is the check that Django sync works.
+
+1. Backend: `care` with OTP Rx APIs (`cursor/otp-prescriptions-3720-4f0c`) + this plugin installed and migrated (`migrate care_reminders`).
+2. Frontend: `care_fe` branch `cursor/patient-capacitor-alarms-4f0c`, `npm run dev` (port 4000).
+3. Confirm `GET /api/care_reminders/health` is `OK`.
+4. Patient OTP login → **Home**.
+5. Under the greeting you should see **Upcoming doses**.
+6. DevTools → Network: `POST /api/care_reminders/sync/` returns **200** with `occurrences`.
+7. Staff must have prescribed something the parser understands (CARE `text` like `1-0-1`, or a BID-style timing). Then dose times appear.
+8. Empty list + the Android note still means the API is up. Missing card usually means the plugin is not registered (`404` on `/sync/`).
+9. Leave `REACT_PATIENT_APK_URL` unset until an APK exists. When you publish one, set it to the download URL and the Home note becomes an install button.
+
+### Android (after Phase 2 + 3 — no APK yet)
+
+There is no sideloadable APK in this increment yet. When the Capacitor app and Kotlin `Alarm` plugin exist:
+
+1. Point the WebView at patient `care_fe` (dev emulator: `http://10.0.2.2:4000/patient/login`, or the hosted patient URL).
+2. Build a debug APK (`./gradlew assembleDebug` in the Android project). Sideload it. Enable Install unknown apps if needed.
+3. On first launch, allow notifications and exact alarms (Android 12+: Alarms & reminders).
+4. OTP login → Home. Same upcoming-doses list as web. Copy should say alarms are set on this device (not the APK download note).
+5. Optional: set `REACT_PATIENT_APK_URL` on the **web** deploy so browser users can install from Home.
+6. Lock the phone. Wait for the next pending `scheduled_at` (or temporarily schedule a dose a minute ahead). Full-screen Taken / Snooze / Skip should appear over the lock screen.
+7. Taken / Skip / Snooze should `POST /api/care_reminders/alarms/{external_id}/…` (signed `?token=` is lock-screen safe). Confirm the occurrence status in Django.
+8. Reboot the phone; `BootReceiver` should re-arm from the local store.
+
+Kotlin to port lives in `care_medicine_reminder` (`AlarmScheduler`, `AlarmActivity`, `DoseAlarm`, etc.). Suggested app location: `care_fe/android` or `apps/patient_android` — not chosen yet.
+
 ## Order of work
 
-1. Phase 0 (portal + 3720) in CARE / care_fe cloud environments
-2. Models + `1-0-1` parser tests in this plugin
-3. Capacitor WebView on `cursor/patient-capacitor-alarms-4f0c`
-4. Port Kotlin alarm plugin and wire `sync`
+1. Phase 0 (portal + 3720) in CARE / care_fe — in progress on the forks
+2. Models + `1-0-1` parser + OTP APIs in this plugin — done on `cursor/increment-1-calendar-d302`
+3. Web Home “Upcoming doses” card — done on `care_fe` `cursor/patient-capacitor-alarms-4f0c`
+4. Capacitor WebView shell (Phase 2) — **next**
+5. Port Kotlin alarm plugin and wire `Alarm.sync` (Phase 3)
+6. Sideload APK and run the Android checklist above

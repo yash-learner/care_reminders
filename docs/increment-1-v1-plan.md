@@ -23,9 +23,9 @@ The browser still cannot ring. That card is the calendar, not `AlarmManager`.
 | 0 | Patient portal + OTP Rx | **Done** (Home / Records / Rx) |
 | 1 | Django calendar + take/skip/snooze/fired | **Done** |
 | 1b | Home “Upcoming doses” card | **Done** (what you are looking at) |
-| 2 | Capacitor Android shell (WebView only) | **Next** |
-| 3 | Kotlin exact alarms + lock-screen UI | After 2 |
-| 4 | Sideload E2E (including two meds at the same time) | After 3 |
+| 2 | Capacitor Android shell (WebView only) | **Done** (`care_fe/android`) |
+| 3 | Kotlin exact alarms + lock-screen UI | **Done** (same-minute grouping) |
+| 4 | Sideload E2E (including two meds at the same time) | **Your machine** — cloud VM has no Android SDK |
 
 Continue existing branches. Do not open a patient federation plug, a fifth tab, or merge `plug_config.py` into CARE core.
 

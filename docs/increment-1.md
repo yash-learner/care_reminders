@@ -40,7 +40,7 @@ Leave behind: Hotwire Native, Stimulus `bridge--alarm`, Rails as CARE’s backen
 | [yash-learner/care_fe](https://github.com/yash-learner/care_fe) | `cursor/patient-capacitor-alarms-4f0c` | Fork **develop** + **squash** of ENG-831 ([ohcnetwork/care_fe#16612](https://github.com/ohcnetwork/care_fe/pull/16612)). Do **not** work on `ENG-831`. |
 | [yash-learner/care](https://github.com/yash-learner/care) | fork `develop` + squash of [ohcnetwork/care#3720](https://github.com/ohcnetwork/care/pull/3720) | OTP Rx/lab APIs. Must run locally. |
 | [yash-learner/care_reminders](https://github.com/yash-learner/care_reminders) | `cursor/increment-1-calendar-d302` | Calendar + alarm HTTP. `pip install -e`. |
-| Capacitor Android | later, next to `care_fe` or `apps/patient_android` | WebView + alarm plugin |
+| Capacitor Android | `care_fe/android` | WebView + alarm plugin |
 | [yash-learner/care_medicine_reminder](https://github.com/yash-learner/care_medicine_reminder) | unchanged | Rails DPG sidecar |
 
 ### Cloud environments
@@ -190,6 +190,6 @@ Working sequence, including same-time medicines and v1 real-world limits: [`incr
 1. Phase 0 (portal + 3720) — **done** (OTP Home / Records / Rx)
 2. Models + `1-0-1` parser + OTP APIs in this plugin — **done** on `cursor/increment-1-calendar-d302`
 3. Web Home “Upcoming doses” card — **done** on `care_fe` `cursor/patient-capacitor-alarms-4f0c`
-4. Capacitor WebView shell in `care_fe/android` (Phase 2) — **next**
-5. Port Kotlin alarm plugin, group same-minute medicines on the lock screen, wire `Alarm.sync` (Phase 3)
-6. Sideload APK and run the Android checklist above (plus two medicines at the same clock)
+4. Capacitor WebView shell in `care_fe/android` (Phase 2) — **done**
+5. Port Kotlin alarm plugin, group same-minute medicines on the lock screen, wire `Alarm.sync` (Phase 3) — **done**
+6. Sideload APK on your phone/emulator (Phase 4) — see `care_fe/docs/android.md`

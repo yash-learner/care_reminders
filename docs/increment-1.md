@@ -172,6 +172,17 @@ Alarms will not ring in Chrome/Firefox. The Home card is the check that Django s
 
 There is no sideloadable APK in this increment yet. When the Capacitor app and Kotlin `Alarm` plugin exist:
 
+On a machine that already has `care_fe` `cursor/patient-capacitor-alarms-4f0c` (the `android/` folder is committed):
+
+```bash
+cd care_fe
+git pull
+npm install
+npx cap sync android
+```
+
+Then assemble/sideload as in `care_fe/docs/android.md`. Only run `npx cap add android` and `bash scripts/apply-android-alarm.sh` if `android/` is missing.
+
 1. Point the WebView at patient `care_fe` (dev emulator: `http://10.0.2.2:4000/patient/login`, or the hosted patient URL).
 2. Build a debug APK (`./gradlew assembleDebug` in the Android project). Sideload it. Enable Install unknown apps if needed.
 3. On first launch, allow notifications and exact alarms (Android 12+: Alarms & reminders).

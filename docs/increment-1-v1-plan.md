@@ -126,12 +126,7 @@ These show up on real phones. v1 handles them with the Rails Kotlin behaviour pl
 
 ## Phase 2 — Capacitor shell (no ringing yet)
 
-Put the Android project in **`care_fe/android`**. Capacitor’s default, and the APK **is** this React app. Do not start a fifth repo.
-
-1. `npx cap add android` on `cursor/patient-capacitor-alarms-4f0c`.
-2. `capacitor.config.ts`: debug WebView loads **patient** `care_fe` (`http://10.0.2.2:4000/patient/login` on the emulator). Not `/` (staff). Not a bundled rebuild of the portal in Kotlin.
-3. Debug APK. Success = OTP login, Home (upcoming doses), Records, prescription detail — same UI as the browser.
-4. Copy on Home: only say “alarms are set on this device” when `Capacitor.Plugins.Alarm` exists. In this phase the plugin is absent, so keep the “alarms need the Android app” note or a single “alarms land in the next build” string.
+Put the Android project in **`care_fe/android`**. Capacitor’s default, and the APK **is** this React app. Do not start a fifth repo. That folder is committed on `cursor/patient-capacitor-alarms-4f0c` — after a pull, `npm install` and `npx cap sync android` are enough. `cap add` + `apply-android-alarm.sh` only if `android/` is missing.
 
 Kotlin 2.3 from the Rails Android increment still applies when we add the plugin in Phase 3.
 

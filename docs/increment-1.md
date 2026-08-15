@@ -98,6 +98,8 @@ URLs under `/api/care_reminders/`. Auth: same `JWTTokenPatientAuthentication` as
 | --- | --- |
 | `POST /api/care_reminders/sync/` | From live prescriptions, (re)build upcoming occurrences |
 | `GET /api/care_reminders/alarms/` | JSON calendar (2h ago → 7 days), signed action URLs |
+| `GET /api/care_reminders/clocks/` | Day-part clocks for patients on this OTP number |
+| `PATCH /api/care_reminders/clocks/` | Save clocks; rebuild pending occurrences; return calendar |
 | `POST /api/care_reminders/alarms/:id/take\|skip\|snooze\|fired/` | Same as Rails |
 
 Scope to `request.user` patient (same as 3720). Tests for `1-0-1` vs BID display variants.

@@ -1,6 +1,6 @@
 # Patient alarm clocks (day-part first)
 
-People take morning medicines **together**, often earlier than the instance default (07:00 instead of 09:00). Rails stored that as `Patient.morning_at` (and noon / evening / night). CARE v1 stamps instance `DAY_PART_TIMES` onto every schedule on `POST /sync/`.
+People take morning medicines **together**, often earlier than the instance default (07:00 instead of 09:00). Rails stored that as `Patient.morning_at` (and noon / evening / night). This plug stores the same four clocks on `ReminderPatientClock`. New schedules copy those times; `POST /sync/` does not reset them to instance `DAY_PART_TIMES`.
 
 **Default product:** one clock per day-part for the patient. All morning slots share it. That matches M-A-N, the Home list, and Kotlin same-minute grouping (“Take all”).
 
@@ -132,7 +132,6 @@ Only if a programme needs “this tablet 30 minutes before food.” Then add `ti
 
 ## Sequence
 
-1. `ReminderPatientClock` + GET/PATCH + sync copies patient clocks (`care_reminders`).
-2. Profile four pickers + i18n (`care_fe`).
-3. Capacitor uses existing `Alarm.sync`.
-4. Per-medicine override only if needed.
+1. **Done.** `ReminderPatientClock` + GET/PATCH `/api/care_reminders/clocks/` + sync copies patient clocks (`care_reminders`).
+2. **Done.** Profile four pickers + i18n (`care_fe`). Capacitor uses existing `Alarm.sync` after PATCH (calendar in the response).
+3. Per-medicine override only if needed.

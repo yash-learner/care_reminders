@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from care.emr.models.medication_request import MedicationRequest
@@ -10,10 +10,10 @@ from care.emr.models.patient import Patient
 from django.utils import timezone
 
 from care_reminders.active_window import INACTIVE_STATUSES, ActiveWindow
+from care_reminders.clocks import ensure_patient_clock, time_of_day_for
 from care_reminders.dosage_parser import DosageParser
-from care_reminders.models import ReminderSchedule
+from care_reminders.models import CLOCK_PARTS, ReminderSchedule
 from care_reminders.occurrence_generator import OccurrenceGenerator
-from care_reminders.settings import plugin_settings
 
 
 def _decimal(value, default=Decimal("1")) -> Decimal:
@@ -24,12 +24,6 @@ def _decimal(value, default=Decimal("1")) -> Decimal:
     except (InvalidOperation, ValueError, TypeError):
         return default
     return parsed if parsed > 0 else default
-
-
-def _parse_clock(value: str) -> time:
-    hour, minute, *rest = (int(part) for part in value.split(":"))
-    second = rest[0] if rest else 0
-    return time(hour, minute, second)
 
 
 def medication_name(request: MedicationRequest) -> str:
@@ -52,13 +46,6 @@ def dose_quantity_and_unit(instruction: dict) -> tuple[Decimal, str]:
     return _decimal(quantity.get("value"), Decimal("1")), unit_label
 
 
-def time_of_day_for(day_part: str) -> time | None:
-    clocks = plugin_settings.DAY_PART_TIMES
-    if day_part in clocks:
-        return _parse_clock(clocks[day_part])
-    return _parse_clock(clocks.get("morning", "09:00"))
-
-
 def is_schedulable(request: MedicationRequest, parsed) -> bool:
     if request.do_not_perform:
         return False
@@ -71,6 +58,7 @@ def is_schedulable(request: MedicationRequest, parsed) -> bool:
 
 def sync_medication_request(request: MedicationRequest, *, now=None) -> int:
     now = now or timezone.now()
+    clock = ensure_patient_clock(request.patient)
     instructions = request.dosage_instruction or []
     instruction = instructions[0] if instructions else {}
     if not isinstance(instruction, dict):
@@ -93,6 +81,7 @@ def sync_medication_request(request: MedicationRequest, *, now=None) -> int:
     created = 0
 
     for slot in parsed.slots:
+        part = slot.day_part if slot.day_part in CLOCK_PARTS else "morning"
         schedule, _ = ReminderSchedule.objects.update_or_create(
             medication_request=request,
             day_part=slot.day_part,
@@ -103,9 +92,7 @@ def sync_medication_request(request: MedicationRequest, *, now=None) -> int:
                 "dose_amount": slot.dose_amount,
                 "dose_unit": dose_unit,
                 "frequency_text": parsed.frequency_text or "",
-                "time_of_day": time_of_day_for(slot.day_part)
-                if slot.day_part in {"morning", "noon", "evening", "night"}
-                else time_of_day_for("morning"),
+                "time_of_day": time_of_day_for(part, clock),
                 "interval_hours": slot.interval_hours,
                 "enabled": enabled,
                 "channel": "alarm",

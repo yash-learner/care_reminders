@@ -13,6 +13,13 @@ from rest_framework.views import APIView
 from care_reminders.alarms import token as alarm_token
 from care_reminders.alarms.calendar import Calendar
 from care_reminders.alarms.snoozer import Snoozer
+from care_reminders.clocks import (
+    CLOCK_FIELDS,
+    apply_patient_clocks,
+    ensure_patient_clock,
+    parse_clock,
+    serialize_clock,
+)
 from care_reminders.models import NotificationDelivery, ReminderOccurrence
 from care_reminders.prescription_sync import sync_phone_number
 
@@ -48,6 +55,51 @@ class SyncView(OTPAlarmView):
 class AlarmCalendarView(OTPAlarmView):
     def get(self, request):
         return Response(Calendar(patient_ids=self.patient_ids(request)).to_h())
+
+
+class ClockView(OTPAlarmView):
+    def patients(self, request):
+        return list(Patient.objects.filter(phone_number=request.user.phone_number))
+
+    def get(self, request):
+        clocks = [serialize_clock(ensure_patient_clock(patient)) for patient in self.patients(request)]
+        return Response({"clocks": clocks})
+
+    def patch(self, request):
+        patients = self.patients(request)
+        if not patients:
+            return Response({"ok": False, "error": "No patient on this number."}, status=404)
+
+        payload = request.data if isinstance(request.data, dict) else {}
+        patient_id = str(payload.get("patient_id") or "")
+        if patient_id:
+            patient = next((item for item in patients if str(item.external_id) == patient_id), None)
+            if patient is None:
+                raise PermissionDenied("This patient is not on the signed-in number.")
+        elif len(patients) == 1:
+            patient = patients[0]
+        else:
+            return Response({"ok": False, "error": "patient_id is required."}, status=422)
+
+        clock = ensure_patient_clock(patient)
+        changed: list[str] = []
+        try:
+            for field in CLOCK_FIELDS:
+                if field not in payload:
+                    continue
+                value = parse_clock(payload[field])
+                if getattr(clock, field) != value:
+                    setattr(clock, field, value)
+                    changed.append(field.removesuffix("_at"))
+        except ValueError as error:
+            return Response({"ok": False, "error": str(error)}, status=422)
+
+        if changed:
+            clock.save()
+            apply_patient_clocks(patient, changed)
+
+        calendar = Calendar(patient_ids=self.patient_ids(request)).to_h()
+        return Response({"ok": True, "clock": serialize_clock(clock), **calendar})
 
 
 class AlarmActionView(APIView):

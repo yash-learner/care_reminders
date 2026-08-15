@@ -1,3 +1,4 @@
+from datetime import time
 from decimal import Decimal, InvalidOperation
 
 from care.utils.models.base import BaseModel
@@ -18,6 +19,8 @@ DAY_PARTS = (
 CHANNELS = ("alarm", "push", "call", "sms", "whatsapp", "visit")
 
 OCCURRENCE_STATUSES = ("pending", "sent", "taken", "skipped", "missed")
+
+CLOCK_PARTS = ("morning", "noon", "evening", "night")
 
 
 def format_dose(value) -> str:
@@ -72,6 +75,33 @@ class ReminderSchedule(BaseModel):
     def dose_label(self) -> str:
         amount = format_dose(self.dose_amount)
         return " ".join(part for part in (amount, self.dose_unit) if part).strip()
+
+
+class ReminderPatientClock(BaseModel):
+    patient = models.ForeignKey(
+        "emr.Patient",
+        on_delete=models.CASCADE,
+        related_name="care_reminder_clocks",
+    )
+    time_zone = models.CharField(max_length=64, default="Asia/Kolkata")
+    morning_at = models.TimeField(default=time(9, 0))
+    noon_at = models.TimeField(default=time(13, 0))
+    evening_at = models.TimeField(default=time(18, 0))
+    night_at = models.TimeField(default=time(21, 0))
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["patient"],
+                condition=models.Q(deleted=False),
+                name="cr_rpc_patient_uniq",
+            )
+        ]
+
+    def time_for(self, day_part: str) -> time:
+        if day_part in CLOCK_PARTS:
+            return getattr(self, f"{day_part}_at")
+        return self.morning_at
 
 
 class ReminderOccurrence(BaseModel):

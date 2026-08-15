@@ -79,6 +79,7 @@ OTP login in care_fe
 - Staff UI
 - Play Store listing / OEM-specific battery hacks
 - Merging occurrences in Django or a `group_id` column
+- Per-medicine / per-patient alarm clocks in the patient portal — planned in [`per-medicine-alarm-clocks.md`](per-medicine-alarm-clocks.md) (v1 always uses instance `DAY_PART_TIMES`)
 
 ---
 

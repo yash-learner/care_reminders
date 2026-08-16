@@ -168,7 +168,7 @@ Alarms will not ring in Chrome/Firefox. The Home card is the check that Django s
 3. Confirm `GET /api/care_reminders/health` is `OK`.
 4. Patient OTP login → **Home**.
 5. Under the greeting you should see **Upcoming doses** (the card collapses; the count stays on the header).
-6. Records → a prescription → tap a **medicine name** (not the bell). You should see upcoming / taken / skipped / missed from `GET /api/care_reminders/doses/`. Snoozed doses stay **upcoming** at the new time.
+6. Records → a prescription → **bell** in the header (not on each medicine). Shared times plus a switch per medicine. Tap a **medicine name** for upcoming / taken / skipped / missed from `GET /api/care_reminders/doses/`. Snoozed doses stay **upcoming** at the new time.
 7. DevTools → Network: `POST /api/care_reminders/sync/` returns **200** with `occurrences`.
 8. Staff must have prescribed something the parser understands (CARE `text` like `1-0-1`, or a BID-style timing). Then dose times appear.
 9. Empty list + the Android note still means the API is up. Missing card usually means the plugin is not registered (`404` on `/sync/`).

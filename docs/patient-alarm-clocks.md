@@ -40,7 +40,7 @@ Kotlin still rings UTC `scheduled_at`. HH:MM is interpreted in `plugin_settings.
 ## Do not reverse
 
 - Django plug is source of truth. Capacitor re-syncs after PATCH.
-- No fifth Patient tab. Opt-in from a **Records prescription** (bell on each medicine). Shared day-part clocks live in that sheet. Not a picker per slot.
+- No fifth Patient tab. Opt-in from a **Records prescription** (one bell on the prescription). Shared day-part clocks live in that sheet, with a switch per medicine. Not a picker per slot.
 - No Module Federation patient plug.
 - Occurrences stay one row per medicine. Grouping stays Kotlin-only.
 - `prescription_sync` must apply the **patient** clocks to new slots and to slots that are not a later per-medicine override.
@@ -95,7 +95,7 @@ Validate `HH:MM`. Rebuild pending occurrences in the same request; return the up
 
 Keep `PatientRouter` / four tabs.
 
-**Records → prescription:** bell on each scheduled medicine to opt in. Tap the medicine name to expand upcoming / taken / skipped / missed. Home **Upcoming doses** is collapsible.
+**Records → prescription:** one bell on the prescription. Shared morning/noon/evening/night plus a switch per medicine. Tap the medicine name to expand upcoming / taken / skipped / missed. Home **Upcoming doses** is collapsible.
 
 Strings in `public/locale/en.json` only. Browser can save; only the APK rings.
 
@@ -129,5 +129,5 @@ Only if a programme needs “this tablet 30 minutes before food.” Then add `ti
 ## Sequence
 
 1. **Done.** `ReminderPatientClock` + GET/PATCH `/clocks/` + `POST /arm/` / `POST /disarm/`. Sync does not auto-arm.
-2. **Done.** Records prescription bell + shared clocks in that sheet (`care_fe`).
+2. **Done.** Records prescription: one bell, shared clocks, per-medicine switches (`care_fe`).
 3. Per-medicine override only if needed.

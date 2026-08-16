@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from care_reminders.models import ReminderOccurrence, ReminderSchedule
 from care_reminders.settings import plugin_settings
+
+
+def _instant(value: datetime) -> datetime:
+    return value.astimezone(UTC).replace(microsecond=0)
 
 
 class OccurrenceGenerator:
@@ -20,25 +24,38 @@ class OccurrenceGenerator:
         self.now = now or timezone.now()
 
     def call(self) -> list[ReminderOccurrence]:
+        # Taken / skipped / missed / sent keep the unique (schedule, time) slot.
+        # Only pending rows are rebuilt so a second Home sync does not collide.
         self.schedule.occurrences.filter(status="pending").delete()
         if not self.schedule.enabled:
             return []
 
+        occupied = {
+            _instant(at)
+            for at in ReminderOccurrence.objects.filter(reminder_schedule=self.schedule).values_list(
+                "scheduled_at", flat=True
+            )
+        }
         created: list[ReminderOccurrence] = []
         for timestamp in self._timestamps():
+            instant = _instant(timestamp)
+            if instant in occupied:
+                continue
+            occupied.add(instant)
             status = "missed" if timestamp < self.now else "pending"
             try:
-                created.append(
-                    ReminderOccurrence.objects.create(
-                        reminder_schedule=self.schedule,
-                        patient=self.schedule.patient,
-                        medication_request=self.schedule.medication_request,
-                        medication_name=self.schedule.medication_name,
-                        scheduled_at=timestamp,
-                        channel=self.schedule.channel,
-                        status=status,
+                with transaction.atomic():
+                    created.append(
+                        ReminderOccurrence.objects.create(
+                            reminder_schedule=self.schedule,
+                            patient=self.schedule.patient,
+                            medication_request=self.schedule.medication_request,
+                            medication_name=self.schedule.medication_name,
+                            scheduled_at=timestamp,
+                            channel=self.schedule.channel,
+                            status=status,
+                        )
                     )
-                )
             except IntegrityError:
                 continue
         return created

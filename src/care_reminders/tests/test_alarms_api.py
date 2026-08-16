@@ -207,6 +207,38 @@ class AlarmApiTest(CareAPITestBase):
         self.assertNotIn("take_path", rows[0])
         self.assertGreaterEqual(len([row for row in rows if row["status"] == "pending"]), 1)
 
+    def test_repeated_sync_keeps_taken_skipped_and_missed(self):
+        request = self._make_request()
+        sync_medication_request(request)
+        self._arm(request)
+        rows = list(ReminderOccurrence.objects.filter(status="pending").order_by("scheduled_at")[:3])
+        self.assertGreaterEqual(len(rows), 3)
+        take, skip, overdue = rows
+        token = alarm_token.generate(take, "take")
+        self.client.post(f"/api/care_reminders/alarms/{take.external_id}/take/?token={token}")
+        self._auth()
+        self.client.post(f"/api/care_reminders/alarms/{skip.external_id}/skip/")
+        overdue.status = "missed"
+        overdue.save(update_fields=["status", "modified_date"])
+
+        for _ in range(2):
+            response = self.client.post("/api/care_reminders/sync/")
+            self.assertEqual(200, response.status_code)
+
+        take.refresh_from_db()
+        skip.refresh_from_db()
+        overdue.refresh_from_db()
+        self.assertEqual("taken", take.status)
+        self.assertEqual("skipped", skip.status)
+        self.assertEqual("missed", overdue.status)
+        self.assertEqual(
+            1,
+            ReminderOccurrence.objects.filter(
+                reminder_schedule=take.reminder_schedule,
+                scheduled_at=take.scheduled_at,
+            ).count(),
+        )
+
 
 class PatientClockApiTest(AlarmApiTest):
     def _hours(self, day_part: str, patient=None) -> set[int]:

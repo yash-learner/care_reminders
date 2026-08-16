@@ -12,7 +12,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from care_reminders.alarms import token as alarm_token
-from care_reminders.alarms.calendar import Calendar
+from care_reminders.alarms.calendar import Calendar, DoseHistory
 from care_reminders.alarms.snoozer import Snoozer
 from care_reminders.arming import (
     arm_medication_request,
@@ -83,6 +83,11 @@ class SyncView(OTPAlarmView):
 class AlarmCalendarView(OTPAlarmView):
     def get(self, request):
         return Response(Calendar(patient_ids=self.patient_ids(request)).to_h())
+
+
+class DoseHistoryView(OTPAlarmView):
+    def get(self, request):
+        return Response(DoseHistory(patient_ids=self.patient_ids(request)).to_h())
 
 
 class ClockView(OTPAlarmView):

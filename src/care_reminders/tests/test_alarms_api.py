@@ -186,6 +186,27 @@ class AlarmApiTest(CareAPITestBase):
         sync_medication_request(request)
         self.assertFalse(ReminderSchedule.objects.filter(medication_request=request).exists())
 
+    def test_dose_history_includes_taken_and_skipped(self):
+        request = self._make_request()
+        sync_medication_request(request)
+        self._arm(request)
+        pending = list(ReminderOccurrence.objects.filter(status="pending").order_by("scheduled_at")[:2])
+        self.assertGreaterEqual(len(pending), 2)
+        take, skip = pending
+        token = alarm_token.generate(take, "take")
+        self.client.post(f"/api/care_reminders/alarms/{take.external_id}/take/?token={token}")
+        self._auth()
+        self.client.post(f"/api/care_reminders/alarms/{skip.external_id}/skip/")
+        response = self.client.get("/api/care_reminders/doses/")
+        self.assertEqual(200, response.status_code)
+        rows = response.json()["occurrences"]
+        by_id = {row["external_id"]: row for row in rows}
+        self.assertEqual("taken", by_id[str(take.external_id)]["status"])
+        self.assertEqual("skipped", by_id[str(skip.external_id)]["status"])
+        self.assertEqual(str(request.external_id), rows[0]["medication_request_id"])
+        self.assertNotIn("take_path", rows[0])
+        self.assertGreaterEqual(len([row for row in rows if row["status"] == "pending"]), 1)
+
 
 class PatientClockApiTest(AlarmApiTest):
     def _hours(self, day_part: str, patient=None) -> set[int]:

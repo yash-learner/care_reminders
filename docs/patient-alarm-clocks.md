@@ -95,7 +95,7 @@ Validate `HH:MM`. Rebuild pending occurrences in the same request; return the up
 
 Keep `PatientRouter` / four tabs.
 
-**Records → prescription:** bell on each scheduled medicine. That sheet turns reminders on, edits the four shared clocks, cancels this medicine, or cancels all. Home lists only armed doses.
+**Records → prescription:** bell on each scheduled medicine to opt in. Tap the medicine name to expand upcoming / taken / skipped / missed. Home **Upcoming doses** is collapsible.
 
 Strings in `public/locale/en.json` only. Browser can save; only the APK rings.
 

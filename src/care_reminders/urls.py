@@ -7,6 +7,7 @@ from care_reminders.api.views import (
     ArmView,
     ClockView,
     DisarmView,
+    DoseHistoryView,
     SyncView,
 )
 
@@ -19,6 +20,7 @@ urlpatterns = [
     path("health", healthy),
     path("sync/", SyncView.as_view(), name="care-reminders-sync"),
     path("alarms/", AlarmCalendarView.as_view(), name="care-reminders-alarms"),
+    path("doses/", DoseHistoryView.as_view(), name="care-reminders-doses"),
     path("clocks/", ClockView.as_view(), name="care-reminders-clocks"),
     path("arm/", ArmView.as_view(), name="care-reminders-arm"),
     path("disarm/", DisarmView.as_view(), name="care-reminders-disarm"),

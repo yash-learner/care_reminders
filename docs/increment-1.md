@@ -87,7 +87,7 @@ URLs under `/api/care_reminders/`. Auth: same `JWTTokenPatientAuthentication` as
 **Models** (slim port of Rails):
 
 - `ReminderSchedule` — per medication request / prescription line
-- `ReminderOccurrence` — one clock time, `pending` / `taken` / `skipped`
+- `ReminderOccurrence` — one clock time, `pending` / `sent` / `taken` / `skipped` / `missed`
 - Optional `NotificationDelivery` for `alarm` / `fired`
 
 **Logic to port first:** M-A-N + CARE FHIR `text` over `BID`; `getMedicationActiveWindow`; generate occurrences.
@@ -102,6 +102,7 @@ URLs under `/api/care_reminders/`. Auth: same `JWTTokenPatientAuthentication` as
 | `PATCH /api/care_reminders/clocks/` | Save clocks; rebuild pending for **armed** medicines |
 | `POST /api/care_reminders/arm/` | Opt in one medicine; optional clock fields; return calendar |
 | `POST /api/care_reminders/disarm/` | Cancel one medicine or all (`medication_request_id` omitted) |
+| `GET /api/care_reminders/doses/` | Taken / skipped / missed / upcoming for the prescription screen |
 | `POST /api/care_reminders/alarms/:id/take\|skip\|snooze\|fired/` | Same as Rails |
 
 Scope to `request.user` patient (same as 3720). Tests for `1-0-1` vs BID display variants.
@@ -166,11 +167,12 @@ Alarms will not ring in Chrome/Firefox. The Home card is the check that Django s
 2. Frontend: `care_fe` branch `cursor/patient-capacitor-alarms-4f0c`, `npm run dev` (port 4000).
 3. Confirm `GET /api/care_reminders/health` is `OK`.
 4. Patient OTP login → **Home**.
-5. Under the greeting you should see **Upcoming doses**.
-6. DevTools → Network: `POST /api/care_reminders/sync/` returns **200** with `occurrences`.
-7. Staff must have prescribed something the parser understands (CARE `text` like `1-0-1`, or a BID-style timing). Then dose times appear.
-8. Empty list + the Android note still means the API is up. Missing card usually means the plugin is not registered (`404` on `/sync/`).
-9. Leave `REACT_PATIENT_APK_URL` unset until an APK exists. When you publish one, set it to the download URL and the Home note becomes an install button.
+5. Under the greeting you should see **Upcoming doses** (the card collapses; the count stays on the header).
+6. Records → a prescription → tap a **medicine name** (not the bell). You should see upcoming / taken / skipped / missed from `GET /api/care_reminders/doses/`. Snoozed doses stay **upcoming** at the new time.
+7. DevTools → Network: `POST /api/care_reminders/sync/` returns **200** with `occurrences`.
+8. Staff must have prescribed something the parser understands (CARE `text` like `1-0-1`, or a BID-style timing). Then dose times appear.
+9. Empty list + the Android note still means the API is up. Missing card usually means the plugin is not registered (`404` on `/sync/`).
+10. Leave `REACT_PATIENT_APK_URL` unset until an APK exists. When you publish one, set it to the download URL and the Home note becomes an install button.
 
 ### Android (after Phase 2 + 3 — no APK yet)
 
@@ -204,7 +206,7 @@ Working sequence, including same-time medicines and v1 real-world limits: [`incr
 
 1. Phase 0 (portal + 3720) — **done** (OTP Home / Records / Rx)
 2. Models + `1-0-1` parser + OTP APIs in this plugin — **done** on `cursor/increment-1-calendar-d302`
-3. Web Home “Upcoming doses” card — **done** on `care_fe` `cursor/patient-capacitor-alarms-4f0c`
+3. Web Home “Upcoming doses” card (collapsible) + prescription dose log — **done** on `care_fe` `cursor/patient-capacitor-alarms-4f0c`
 4. Capacitor WebView shell in `care_fe/android` (Phase 2) — **done**
 5. Port Kotlin alarm plugin, group same-minute medicines on the lock screen, wire `Alarm.sync` (Phase 3) — **done**
 6. Sideload APK on your phone/emulator (Phase 4) — see `care_fe/docs/android.md`

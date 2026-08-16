@@ -4,7 +4,7 @@ CARE Django plugin: dose calendar and Android exact-alarm APIs for patient OTP s
 
 Scaffolded with [ohcnetwork/care-plugin-cookiecutter](https://github.com/ohcnetwork/care-plugin-cookiecutter). Increment 1 plan: [`docs/increment-1.md`](docs/increment-1.md). v1 build sequence (Capacitor → alarms): [`docs/increment-1-v1-plan.md`](docs/increment-1-v1-plan.md).
 
-Plugin URLs mount at `/api/care_reminders/` (health: `/api/care_reminders/health`). OTP session: `POST /sync/`, `GET /alarms/`, `GET`/`PATCH /clocks/` (shared morning / noon / evening / night), and signed take / skip / snooze / fired.
+Plugin URLs mount at `/api/care_reminders/` (health: `/api/care_reminders/health`). OTP session: `POST /sync/` (does not arm), `GET /alarms/`, `GET`/`PATCH /clocks/`, `POST /arm/` / `POST /disarm/`, and signed take / skip / snooze / fired.
 
 ## Local development (with CARE)
 

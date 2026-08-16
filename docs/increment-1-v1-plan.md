@@ -23,7 +23,7 @@ The browser still cannot ring. That card is the calendar, not `AlarmManager`.
 | 0 | Patient portal + OTP Rx | **Done** (Home / Records / Rx) |
 | 1 | Django calendar + take/skip/snooze/fired | **Done** |
 | 1b | Home “Upcoming doses” card | **Done** (what you are looking at) |
-| 1c | Shared day-part clocks (Profile) | **Done** (`GET`/`PATCH /clocks/`) |
+| 1c | Shared day-part clocks, opt-in from Records | **Done** (`POST /arm/` `/disarm/`) |
 | 2 | Capacitor Android shell (WebView only) | **Done** (`care_fe/android`) |
 | 3 | Kotlin exact alarms + lock-screen UI | **Done** (same-minute grouping) |
 | 4 | Sideload E2E (including two meds at the same time) | **Your machine** — cloud VM has no Android SDK |
@@ -66,8 +66,8 @@ OTP login in care_fe
 - Debug APK whose WebView is the **patient** portal (`/patient/login`), not staff EMR
 - Exact alarm at each dose time, including app killed and after reboot
 - Full-screen lock-screen actions
-- Home still lists upcoming doses (same calendar)
-- Shared day-part clocks on Profile (all morning medicines share one time)
+- Home lists upcoming doses **after the patient turns reminders on** from a prescription
+- Shared day-part clocks in that sheet (all morning medicines share one time)
 - Two (or more) medicines at the same clock: **one ring, one screen, per-medicine actions**
 
 **Out of v1:**

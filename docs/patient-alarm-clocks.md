@@ -40,7 +40,7 @@ Kotlin still rings UTC `scheduled_at`. HH:MM is interpreted in `plugin_settings.
 ## Do not reverse
 
 - Django plug is source of truth. Capacitor re-syncs after PATCH.
-- No fifth Patient tab. Four clocks live on **Profile** (or a short “Alarm times” block on Home). Not a picker on every Records medicine row.
+- No fifth Patient tab. Opt-in from a **Records prescription** (bell on each medicine). Shared day-part clocks live in that sheet. Not a picker per slot.
 - No Module Federation patient plug.
 - Occurrences stay one row per medicine. Grouping stays Kotlin-only.
 - `prescription_sync` must apply the **patient** clocks to new slots and to slots that are not a later per-medicine override.
@@ -95,11 +95,7 @@ Validate `HH:MM`. Rebuild pending occurrences in the same request; return the up
 
 Keep `PatientRouter` / four tabs.
 
-**Profile** (best fit): “Alarm times” with Morning / Noon / Evening / Night. Copy: “All medicines in that part of day use this time.”
-
-Optional one-line on Home: “Morning alarms at 7:00 AM” → Profile.
-
-No per-row time control on Records in this slice.
+**Records → prescription:** bell on each scheduled medicine. That sheet turns reminders on, edits the four shared clocks, cancels this medicine, or cancels all. Home lists only armed doses.
 
 Strings in `public/locale/en.json` only. Browser can save; only the APK rings.
 
@@ -132,6 +128,6 @@ Only if a programme needs “this tablet 30 minutes before food.” Then add `ti
 
 ## Sequence
 
-1. **Done.** `ReminderPatientClock` + GET/PATCH `/api/care_reminders/clocks/` + sync copies patient clocks (`care_reminders`).
-2. **Done.** Profile four pickers + i18n (`care_fe`). Capacitor uses existing `Alarm.sync` after PATCH (calendar in the response).
+1. **Done.** `ReminderPatientClock` + GET/PATCH `/clocks/` + `POST /arm/` / `POST /disarm/`. Sync does not auto-arm.
+2. **Done.** Records prescription bell + shared clocks in that sheet (`care_fe`).
 3. Per-medicine override only if needed.

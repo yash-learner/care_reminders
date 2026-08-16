@@ -75,13 +75,19 @@ def sync_medication_request(request: MedicationRequest, *, now=None) -> int:
         now=now,
     ).call()
 
-    enabled = is_schedulable(request, parsed)
+    schedulable = is_schedulable(request, parsed)
     name = medication_name(request)
     keep_ids: list[int] = []
     created = 0
 
     for slot in parsed.slots:
         part = slot.day_part if slot.day_part in CLOCK_PARTS else "morning"
+        existing = ReminderSchedule.objects.filter(
+            medication_request=request,
+            day_part=slot.day_part,
+            slot_index=slot.slot_index,
+        ).first()
+        enabled = schedulable and bool(existing and existing.enabled)
         schedule, _ = ReminderSchedule.objects.update_or_create(
             medication_request=request,
             day_part=slot.day_part,

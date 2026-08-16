@@ -54,7 +54,7 @@ class ReminderSchedule(BaseModel):
     frequency_text = models.CharField(max_length=64, blank=True, default="")
     time_of_day = models.TimeField(null=True, blank=True)
     interval_hours = models.PositiveSmallIntegerField(null=True, blank=True)
-    enabled = models.BooleanField(default=True)
+    enabled = models.BooleanField(default=False)
     channel = models.CharField(max_length=16, choices=[(item, item) for item in CHANNELS], default="alarm")
 
     class Meta:

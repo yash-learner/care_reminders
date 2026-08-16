@@ -1,3 +1,4 @@
+from care.emr.models.medication_request import MedicationRequest
 from care.emr.models.patient import Patient
 from config.patient_otp_authentication import (
     JWTTokenPatientAuthentication,
@@ -13,14 +14,15 @@ from rest_framework.views import APIView
 from care_reminders.alarms import token as alarm_token
 from care_reminders.alarms.calendar import Calendar
 from care_reminders.alarms.snoozer import Snoozer
-from care_reminders.clocks import (
-    CLOCK_FIELDS,
-    apply_patient_clocks,
-    ensure_patient_clock,
-    parse_clock,
-    serialize_clock,
+from care_reminders.arming import (
+    arm_medication_request,
+    armed_medication_ids,
+    disarm_medication_request,
+    disarm_patients,
+    update_patient_clock,
 )
-from care_reminders.models import NotificationDelivery, ReminderOccurrence
+from care_reminders.clocks import ensure_patient_clock, serialize_clock
+from care_reminders.models import NotificationDelivery, ReminderOccurrence, ReminderSchedule
 from care_reminders.prescription_sync import sync_phone_number
 
 ACTIONS = {"take", "skip", "snooze", "fired"}
@@ -41,15 +43,41 @@ class OTPAlarmView(APIView):
     authentication_classes = [JWTTokenPatientAuthentication]
     permission_classes = [OTPAuthenticatedPermission]
 
+    def patients(self, request):
+        return list(Patient.objects.filter(phone_number=request.user.phone_number))
+
     def patient_ids(self, request):
-        return list(Patient.objects.filter(phone_number=request.user.phone_number).values_list("id", flat=True))
+        return [patient.id for patient in self.patients(request)]
+
+
+def _payload(view, request, *, clock=None, extra=None):
+    patient_ids = view.patient_ids(request)
+    patients = list(Patient.objects.filter(phone_number=request.user.phone_number))
+    body = {
+        "ok": True,
+        "armed_medication_ids": armed_medication_ids(patient_ids),
+        "clocks": [serialize_clock(ensure_patient_clock(patient)) for patient in patients],
+        **Calendar(patient_ids=patient_ids).to_h(),
+    }
+    if clock is not None:
+        body["clock"] = serialize_clock(clock)
+    if extra:
+        body.update(extra)
+    return Response(body)
+
+
+def _medication_on_phone(request, medication_request_id: str) -> MedicationRequest:
+    medication = get_object_or_404(MedicationRequest, external_id=medication_request_id)
+    phone = getattr(request.user, "phone_number", None)
+    if not phone or medication.patient.phone_number != phone:
+        raise PermissionDenied("This medicine is not on the signed-in number.")
+    return medication
 
 
 class SyncView(OTPAlarmView):
     def post(self, request):
         summary = sync_phone_number(request.user.phone_number)
-        calendar = Calendar(patient_ids=self.patient_ids(request)).to_h()
-        return Response({**summary, **calendar})
+        return _payload(self, request, extra=summary)
 
 
 class AlarmCalendarView(OTPAlarmView):
@@ -58,12 +86,14 @@ class AlarmCalendarView(OTPAlarmView):
 
 
 class ClockView(OTPAlarmView):
-    def patients(self, request):
-        return list(Patient.objects.filter(phone_number=request.user.phone_number))
-
     def get(self, request):
-        clocks = [serialize_clock(ensure_patient_clock(patient)) for patient in self.patients(request)]
-        return Response({"clocks": clocks})
+        patients = self.patients(request)
+        return Response(
+            {
+                "clocks": [serialize_clock(ensure_patient_clock(patient)) for patient in patients],
+                "armed_medication_ids": armed_medication_ids([patient.id for patient in patients]),
+            }
+        )
 
     def patch(self, request):
         patients = self.patients(request)
@@ -81,25 +111,49 @@ class ClockView(OTPAlarmView):
         else:
             return Response({"ok": False, "error": "patient_id is required."}, status=422)
 
-        clock = ensure_patient_clock(patient)
-        changed: list[str] = []
         try:
-            for field in CLOCK_FIELDS:
-                if field not in payload:
-                    continue
-                value = parse_clock(payload[field])
-                if getattr(clock, field) != value:
-                    setattr(clock, field, value)
-                    changed.append(field.removesuffix("_at"))
+            clock, _changed = update_patient_clock(patient, payload)
         except ValueError as error:
             return Response({"ok": False, "error": str(error)}, status=422)
 
-        if changed:
-            clock.save()
-            apply_patient_clocks(patient, changed)
+        return _payload(self, request, clock=clock)
 
-        calendar = Calendar(patient_ids=self.patient_ids(request)).to_h()
-        return Response({"ok": True, "clock": serialize_clock(clock), **calendar})
+
+class ArmView(OTPAlarmView):
+    def post(self, request):
+        payload = request.data if isinstance(request.data, dict) else {}
+        medication_request_id = str(payload.get("medication_request_id") or "")
+        if not medication_request_id:
+            return Response({"ok": False, "error": "medication_request_id is required."}, status=422)
+
+        medication = _medication_on_phone(request, medication_request_id)
+        try:
+            clock, _changed = update_patient_clock(medication.patient, payload)
+        except ValueError as error:
+            return Response({"ok": False, "error": str(error)}, status=422)
+
+        created = arm_medication_request(medication)
+        if created == 0 and not ReminderSchedule.objects.filter(medication_request=medication).exists():
+            return Response(
+                {"ok": False, "error": "This medicine has no scheduled times (for example SOS)."},
+                status=422,
+            )
+        return _payload(self, request, clock=clock, extra={"occurrences_created": created})
+
+
+class DisarmView(OTPAlarmView):
+    def post(self, request):
+        payload = request.data if isinstance(request.data, dict) else {}
+        medication_request_id = str(payload.get("medication_request_id") or "")
+        if medication_request_id:
+            medication = _medication_on_phone(request, medication_request_id)
+            disarm_medication_request(medication)
+            clock = ensure_patient_clock(medication.patient)
+        else:
+            disarm_patients(self.patient_ids(request))
+            patients = self.patients(request)
+            clock = ensure_patient_clock(patients[0]) if patients else None
+        return _payload(self, request, clock=clock)
 
 
 class AlarmActionView(APIView):

@@ -7,6 +7,7 @@ from model_bakery import baker
 from rest_framework.test import APIClient
 
 from care_reminders.alarms import token as alarm_token
+from care_reminders.arming import arm_medication_request
 from care_reminders.models import ReminderOccurrence, ReminderSchedule
 from care_reminders.prescription_sync import sync_medication_request, sync_phone_number
 from care_reminders.settings import plugin_settings
@@ -74,6 +75,14 @@ class AlarmApiTest(CareAPITestBase):
         data.update(kwargs)
         return baker.make("emr.MedicationRequest", **data)
 
+    def _arm(self, request):
+        return arm_medication_request(request)
+
+    def _arm_api(self, request, **clocks):
+        self._auth()
+        body = {"medication_request_id": str(request.external_id), **clocks}
+        return self.client.post("/api/care_reminders/arm/", body, format="json")
+
     def test_sync_builds_morning_and_night_for_1_0_1(self):
         request = self._make_request()
         sync_medication_request(request)
@@ -83,6 +92,8 @@ class AlarmApiTest(CareAPITestBase):
             .values_list("day_part", flat=True)
         )
         self.assertEqual(["morning", "night"], parts)
+        self.assertFalse(ReminderOccurrence.objects.filter(medication_request=request).exists())
+        self._arm(request)
         self.assertTrue(ReminderOccurrence.objects.filter(medication_request=request).exists())
 
     def test_bid_morning_noon_display_does_not_use_night(self):
@@ -104,16 +115,24 @@ class AlarmApiTest(CareAPITestBase):
         self.assertEqual(200, response.status_code)
         body = response.json()
         self.assertTrue(body["ok"])
-        self.assertGreaterEqual(len(body["occurrences"]), 1)
-        first = body["occurrences"][0]
+        self.assertEqual([], body["occurrences"])
+        self.assertEqual([], body["armed_medication_ids"])
+        request = ReminderSchedule.objects.get(day_part="morning").medication_request
+        armed = self._arm_api(request)
+        self.assertEqual(200, armed.status_code)
+        calendar = armed.json()
+        self.assertGreaterEqual(len(calendar["occurrences"]), 1)
+        first = calendar["occurrences"][0]
         self.assertIn("take_path", first)
         self.assertIn("scheduled_at", first)
         self.assertEqual(str(self.patient.external_id), first["patient_id"])
         self.assertEqual("Paracetamol 500 mg oral tablet", first["medication_name"])
+        self.assertIn(str(request.external_id), calendar["armed_medication_ids"])
 
     def test_take_with_signed_token(self):
         request = self._make_request()
         sync_medication_request(request)
+        self._arm(request)
         occurrence = ReminderOccurrence.objects.filter(status="pending").earliest("scheduled_at")
         token = alarm_token.generate(occurrence, "take")
         response = self.client.post(f"/api/care_reminders/alarms/{occurrence.external_id}/take/?token={token}")
@@ -125,6 +144,7 @@ class AlarmApiTest(CareAPITestBase):
     def test_skip_with_otp_bearer(self):
         request = self._make_request()
         sync_medication_request(request)
+        self._arm(request)
         occurrence = ReminderOccurrence.objects.filter(status="pending").earliest("scheduled_at")
         self._auth()
         response = self.client.post(f"/api/care_reminders/alarms/{occurrence.external_id}/skip/")
@@ -135,6 +155,7 @@ class AlarmApiTest(CareAPITestBase):
     def test_snooze_postpones_pending_dose(self):
         request = self._make_request()
         sync_medication_request(request)
+        self._arm(request)
         occurrence = ReminderOccurrence.objects.filter(status="pending").earliest("scheduled_at")
         token = alarm_token.generate(occurrence, "snooze")
         before = occurrence.scheduled_at
@@ -178,21 +199,24 @@ class PatientClockApiTest(AlarmApiTest):
         return {row.scheduled_at.astimezone(zone).hour for row in rows}
 
     def test_new_rx_uses_instance_morning_default(self):
-        self._make_request()
+        request = self._make_request()
         self._auth()
         response = self.client.post("/api/care_reminders/sync/")
         self.assertEqual(200, response.status_code)
-        self.assertEqual({9}, self._hours("morning"))
+        self.assertEqual(set(), self._hours("morning"))
         clocks = self.client.get("/api/care_reminders/clocks/")
         self.assertEqual(200, clocks.status_code)
-        body = clocks.json()["clocks"]
-        self.assertEqual(1, len(body))
-        self.assertEqual("09:00", body[0]["morning_at"])
-        self.assertEqual(str(self.patient.external_id), body[0]["patient_id"])
+        body = clocks.json()
+        self.assertEqual(1, len(body["clocks"]))
+        self.assertEqual("09:00", body["clocks"][0]["morning_at"])
+        self.assertEqual(str(self.patient.external_id), body["clocks"][0]["patient_id"])
+        self.assertEqual([], body["armed_medication_ids"])
+        self._arm(request)
+        self.assertEqual({9}, self._hours("morning"))
 
     def test_patch_morning_moves_all_morning_doses(self):
-        self._make_request()
-        self._make_request(
+        first = self._make_request()
+        second = self._make_request(
             medication={
                 "display": "Metformin 500 mg oral tablet",
                 "system": "http://snomed.info/sct",
@@ -201,6 +225,8 @@ class PatientClockApiTest(AlarmApiTest):
         )
         self._auth()
         self.client.post("/api/care_reminders/sync/")
+        self._arm(first)
+        self._arm(second)
         night_hours = self._hours("night")
         response = self.client.patch(
             "/api/care_reminders/clocks/",
@@ -221,9 +247,10 @@ class PatientClockApiTest(AlarmApiTest):
         self.assertEqual({7}, morning_json)
 
     def test_sync_after_patch_keeps_morning_time(self):
-        self._make_request()
+        request = self._make_request()
         self._auth()
         self.client.post("/api/care_reminders/sync/")
+        self._arm(request)
         self.client.patch(
             "/api/care_reminders/clocks/",
             {"patient_id": str(self.patient.external_id), "morning_at": "07:00"},
@@ -233,15 +260,16 @@ class PatientClockApiTest(AlarmApiTest):
         self.assertEqual({7}, self._hours("morning"))
 
     def test_later_prescription_uses_patient_clock(self):
-        self._make_request()
+        first = self._make_request()
         self._auth()
         self.client.post("/api/care_reminders/sync/")
+        self._arm(first)
         self.client.patch(
             "/api/care_reminders/clocks/",
             {"patient_id": str(self.patient.external_id), "morning_at": "07:00"},
             format="json",
         )
-        self._make_request(
+        second = self._make_request(
             medication={
                 "display": "Metformin 500 mg oral tablet",
                 "system": "http://snomed.info/sct",
@@ -249,6 +277,10 @@ class PatientClockApiTest(AlarmApiTest):
             }
         )
         self.client.post("/api/care_reminders/sync/")
+        morning = ReminderSchedule.objects.get(medication_request=second, day_part="morning")
+        self.assertEqual(7, morning.time_of_day.hour)
+        self.assertFalse(morning.enabled)
+        self._arm(second)
         self.assertEqual({7}, self._hours("morning"))
 
     def test_patch_does_not_move_another_phone(self):
@@ -258,8 +290,8 @@ class PatientClockApiTest(AlarmApiTest):
             facility=self.facility,
             organization=self.organization,
         )
-        self._make_request()
-        baker.make(
+        ours = self._make_request()
+        theirs = baker.make(
             "emr.MedicationRequest",
             patient=other,
             encounter=other_encounter,
@@ -278,6 +310,8 @@ class PatientClockApiTest(AlarmApiTest):
         )
         sync_phone_number(self.patient.phone_number)
         sync_phone_number(other.phone_number)
+        self._arm(ours)
+        self._arm(theirs)
         self._auth()
         self.client.patch(
             "/api/care_reminders/clocks/",
@@ -296,3 +330,38 @@ class PatientClockApiTest(AlarmApiTest):
             format="json",
         )
         self.assertEqual(422, response.status_code)
+
+    def test_arm_with_times_then_disarm_this_and_all(self):
+        first = self._make_request()
+        second = self._make_request(
+            medication={
+                "display": "Metformin 500 mg oral tablet",
+                "system": "http://snomed.info/sct",
+                "code": "109081006",
+            }
+        )
+        self._auth()
+        self.client.post("/api/care_reminders/sync/")
+        armed = self._arm_api(first, morning_at="07:00")
+        self.assertEqual(200, armed.status_code)
+        self.assertEqual("07:00", armed.json()["clock"]["morning_at"])
+        self.assertEqual({7}, self._hours("morning"))
+        self.assertIn(str(first.external_id), armed.json()["armed_medication_ids"])
+
+        self._arm(second)
+        self.assertEqual(2, len(self.client.get("/api/care_reminders/clocks/").json()["armed_medication_ids"]))
+
+        cancelled = self.client.post(
+            "/api/care_reminders/disarm/",
+            {"medication_request_id": str(first.external_id)},
+            format="json",
+        )
+        self.assertEqual(200, cancelled.status_code)
+        self.assertNotIn(str(first.external_id), cancelled.json()["armed_medication_ids"])
+        self.assertIn(str(second.external_id), cancelled.json()["armed_medication_ids"])
+        self.assertFalse(ReminderOccurrence.objects.filter(medication_request=first, status="pending").exists())
+
+        all_off = self.client.post("/api/care_reminders/disarm/", {}, format="json")
+        self.assertEqual(200, all_off.status_code)
+        self.assertEqual([], all_off.json()["armed_medication_ids"])
+        self.assertEqual([], all_off.json()["occurrences"])
